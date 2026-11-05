@@ -33,3 +33,21 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# PGSharp Pessoal: dados e arquivos particulares
+*.dat
+*Stats*.json
+*.apks
+*.xapk
+*.p12
+*.pem
+*.key
+.env
+.env.*
+private_keys/
+backups/
+inventario/
+build_local/
+*.backup
+__pycache__/
+*.pyc
