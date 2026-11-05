@@ -49,13 +49,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Android SDK
-        if: inputs.modo == 'apk'
-        uses: android-actions/setup-android@v3
       - name: Dependências Android
         if: inputs.modo == 'apk'
         run: |
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -V | tail -1)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
           sudo apt-get update -qq
           sudo apt-get install -y -qq p7zip-full
           curl -fL --retry 3 --silent --show-error -o "$RUNNER_TEMP/apktool.jar" \
