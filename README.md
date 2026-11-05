@@ -61,3 +61,9 @@ A fonte experimental está no repositório privado; workflow de build disponíve
 - A release privada `base-apk`, com o asset `original.apk`, ainda não existe. Sem ela o modo `apk` não pode completar.
 - Não é possível verificar os valores dos GitHub Actions secrets por esta integração. Confirme-os nas configurações do repositório público.
 - O editor atualmente edita uma cópia do DAT; **não** modifica de imediato os favoritos ativos do aplicativo.
+
+## Pré-validação pública
+
+O workflow `ambiente.yml` verifica Java, Android SDK 35, D8, zipalign, apksigner e Apktool, **sem** baixar o APK original ou acessar segredos. Um resultado verde significa somente que as ferramentas do runner estão disponíveis.
+
+A configuração inicial de `base-apk` e dos secrets pode ser feita no PC Windows usando `scripts/primeira_compilacao.ps1` do repositório **privado**. O script não transmite dados da conta para este repositório. Depois do disparo, acompanhe a execução de `gerar-apk.yml` e baixe o artefato 7z criptografado, caso o build seja bem-sucedido.
