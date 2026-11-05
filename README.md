@@ -53,3 +53,11 @@ Baixe o artefato criptografado da execução e extraia com a senha PGSHARP_ARTIF
 
 ## Situação atual
 A fonte experimental está no repositório privado; workflow de build disponível. **Ainda não há APK compilado, instalado ou testado neste fluxo.** Só execute após configurar os segredos e o APK base. Modificações do aplicativo de terceiros podem deixar login, atualização, integração Unity e verificações de integridade inoperantes e trazer riscos para a conta de jogo.
+
+## Continuação de 05/11/2026
+- Correção no workflow público: utilização do `sdkmanager` já presente no runner Ubuntu, evitando a falha do pacote Android SDK `tools` removido.
+- Testes de Java + D8 + inserção em APK sintético aprovados no repositório privado: https://github.com/LucianoToscano/PGSharp-Privado/actions/runs/41975671312
+- Nenhuma execução pública de `gerar-apk.yml` foi encontrada no momento da auditoria.
+- A release privada `base-apk`, com o asset `original.apk`, ainda não existe. Sem ela o modo `apk` não pode completar.
+- Não é possível verificar os valores dos GitHub Actions secrets por esta integração. Confirme-os nas configurações do repositório público.
+- O editor atualmente edita uma cópia do DAT; **não** modifica de imediato os favoritos ativos do aplicativo.
