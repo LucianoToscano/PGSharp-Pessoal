@@ -1,0 +1,119 @@
+name: PGSharp Pessoal - validação e APK experimental
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "validar = testes de código; apk = reconstrução do pacote com assinatura própria"
+        required: true
+        type: choice
+        options:
+          - validar
+          - apk
+        default: validar
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pgs-pessoal-manual
+  cancel-in-progress: false
+
+jobs:
+  privado:
+    if: github.actor == 'LucianoToscano'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Confirmar configuração do token de leitura
+        env:
+          TOKEN: "${{ secrets.PRIVATE_REPO_READ_TOKEN }}"
+        run: |
+          test -n "$TOKEN" || { echo "Defina o secret PRIVATE_REPO_READ_TOKEN no repositório público."; exit 1; }
+      - name: Obter somente fonte privada
+        uses: actions/checkout@v4
+        with:
+          repository: LucianoToscano/PGSharp-Privado
+          ref: main
+          token: "${{ secrets.PRIVATE_REPO_READ_TOKEN }}"
+          path: fonte
+          persist-credentials: false
+      - name: Validar scripts privados
+        shell: bash
+        run: |
+          python3 -m unittest discover -s fonte/tests -v
+          python3 -m py_compile fonte/scripts/patch_smali.py fonte/scripts/insert_payload.py
+          test -f fonte/build_ci.sh
+      - name: Java 17
+        if: inputs.modo == 'apk'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        if: inputs.modo == 'apk'
+        uses: android-actions/setup-android@v3
+      - name: Dependências Android
+        if: inputs.modo == 'apk'
+        run: |
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
+          curl -fL --retry 3 --silent --show-error -o "$RUNNER_TEMP/apktool.jar" \
+            https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar
+          test -s "$RUNNER_TEMP/apktool.jar"
+      - name: Baixar APK original da release PRIVADA
+        if: inputs.modo == 'apk'
+        env:
+          GH_TOKEN: "${{ secrets.PRIVATE_REPO_READ_TOKEN }}"
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/base"
+          gh release download base-apk \
+            -R LucianoToscano/PGSharp-Privado \
+            -p original.apk -D "$RUNNER_TEMP/base"
+          test -s "$RUNNER_TEMP/base/original.apk"
+      - name: Preparar chave de assinatura privada
+        if: inputs.modo == 'apk'
+        env:
+          KEY_B64: "${{ secrets.PGSHARP_SIGNING_KEYSTORE_B64 }}"
+          PGSHARP_SIGNING_PASSWORD: "${{ secrets.PGSHARP_SIGNING_PASSWORD }}"
+          PGSHARP_SIGNING_ALIAS: "${{ secrets.PGSHARP_SIGNING_ALIAS }}"
+          PGSHARP_ARTIFACT_PASSWORD: "${{ secrets.PGSHARP_ARTIFACT_PASSWORD }}"
+        shell: bash
+        run: |
+          test -n "$KEY_B64" && test -n "$PGSHARP_SIGNING_PASSWORD" &&
+          test -n "$PGSHARP_SIGNING_ALIAS" && test -n "$PGSHARP_ARTIFACT_PASSWORD" ||
+          { echo "Configure os secrets de assinatura e de proteção do artefato."; exit 1; }
+          umask 077
+          printf '%s' "$KEY_B64" | base64 --decode > "$RUNNER_TEMP/signing.jks"
+          test -s "$RUNNER_TEMP/signing.jks"
+      - name: Compilar e assinar edição experimental
+        if: inputs.modo == 'apk'
+        env:
+          APKTOOL_JAR: "${{ runner.temp }}/apktool.jar"
+          PGSHARP_KEYSTORE_PATH: "${{ runner.temp }}/signing.jks"
+          PGSHARP_SIGNING_PASSWORD: "${{ secrets.PGSHARP_SIGNING_PASSWORD }}"
+          PGSHARP_SIGNING_ALIAS: "${{ secrets.PGSHARP_SIGNING_ALIAS }}"
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/output"
+          bash fonte/build_ci.sh "$RUNNER_TEMP/base/original.apk" "$RUNNER_TEMP/output/PGSharp-Pessoal-EXPERIMENTAL.apk"
+      - name: Empacotar APK criptografado para baixar
+        if: inputs.modo == 'apk'
+        env:
+          PGSHARP_ARTIFACT_PASSWORD: "${{ secrets.PGSHARP_ARTIFACT_PASSWORD }}"
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/output"
+          7z a -t7z -mhe=on "-p$PGSHARP_ARTIFACT_PASSWORD" \
+            "$RUNNER_TEMP/PGSharp-Pessoal-EXPERIMENTAL.7z" PGSharp-Pessoal-EXPERIMENTAL.apk >/dev/null
+          test -s "$RUNNER_TEMP/PGSharp-Pessoal-EXPERIMENTAL.7z"
+          rm -f PGSharp-Pessoal-EXPERIMENTAL.apk
+      - name: Disponibilizar artefato CRIPTOGRAFADO
+        if: inputs.modo == 'apk'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PGSharp-Pessoal-EXPERIMENTAL-protegido
+          path: "${{ runner.temp }}/PGSharp-Pessoal-EXPERIMENTAL.7z"
+          retention-days: 1
+          if-no-files-found: error
